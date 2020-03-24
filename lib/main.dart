@@ -158,12 +158,11 @@ class PipelineSimulator extends StatelessWidget {
     for (int i = 0; i < tick; i++) {
       /// ui thread actions
       if (uiThreadFrame != null) {
-        if (i - uiThreadFrame.buildStart >= settings.ticksToBuild) {
+        if (i - uiThreadFrame.metrics.buildStart >= settings.ticksToBuild) {
           builtNotRastered.add(PipelineItem(
             frameNum: uiThreadFrame.frameNum,
             color: Colors.black,
-            buildStart: uiThreadFrame.buildStart,
-            buildEnd: i,
+            metrics: uiThreadFrame.metrics.copyWith(buildEnd: i),
           ));
           uiThreadFrame = null;
         }
@@ -173,21 +172,18 @@ class PipelineSimulator extends StatelessWidget {
           uiThreadFrame = PipelineItem(
             frameNum: frameNum++,
             color: Colors.red,
-            buildStart: i,
+            metrics: PipelineMetrics(buildStart: i),
           );
         }
       }
 
       // gpu thread actions
       if (gpuThreadFrame != null) {
-        if (i - gpuThreadFrame.rasterStart >= settings.ticksToRaster) {
+        if (i - gpuThreadFrame.metrics.rasterStart >= settings.ticksToRaster) {
           rastered.add(PipelineItem(
             frameNum: gpuThreadFrame.frameNum,
             color: Colors.green,
-            buildStart: gpuThreadFrame.buildStart,
-            buildEnd: gpuThreadFrame.buildEnd,
-            rasterStart: gpuThreadFrame.rasterStart,
-            rasterEnd: i,
+            metrics: gpuThreadFrame.metrics.copyWith(rasterEnd: i),
           ));
           gpuThreadFrame = null;
         }
@@ -197,9 +193,7 @@ class PipelineSimulator extends StatelessWidget {
         gpuThreadFrame = PipelineItem(
           frameNum: front.frameNum,
           color: Colors.blue,
-          buildStart: front.buildStart,
-          buildEnd: front.buildEnd,
-          rasterStart: i,
+          metrics: front.metrics.copyWith(rasterStart: i),
         );
       }
     }
@@ -226,19 +220,13 @@ const kInvalid = -1;
 class PipelineItem extends StatelessWidget {
   final Color color;
   final int frameNum;
-  final int buildStart;
-  final int buildEnd;
-  final int rasterStart;
-  final int rasterEnd;
+  final PipelineMetrics metrics;
 
   const PipelineItem({
     Key key,
     this.color = Colors.blue,
     @required this.frameNum,
-    this.buildStart = kInvalid,
-    this.buildEnd = kInvalid,
-    this.rasterStart = kInvalid,
-    this.rasterEnd = kInvalid,
+    @required this.metrics,
   }) : super(key: key);
 
   Widget displayTimes() {
@@ -247,10 +235,10 @@ class PipelineItem extends StatelessWidget {
       child: Column(
         children: <Widget>[
           Text("frameNum: $frameNum"),
-          Text("buildStart: $buildStart"),
-          Text("buildEnd: $buildEnd"),
-          Text("rasterStart: $rasterStart"),
-          Text("rasterEnd: $rasterEnd"),
+          Text("buildStart: ${metrics.buildStart}"),
+          Text("buildEnd: ${metrics.buildEnd}"),
+          Text("rasterStart: ${metrics.rasterStart}"),
+          Text("rasterEnd: ${metrics.rasterEnd}"),
         ],
       ),
     );

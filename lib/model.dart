@@ -47,3 +47,35 @@ class PipelineSettings extends Equatable {
         ticksPerVsync
       ];
 }
+
+class PipelineMetrics {
+  final int buildStart;
+  final int buildEnd;
+  final int rasterStart;
+  final int rasterEnd;
+
+  PipelineMetrics({
+    this.buildStart,
+    this.buildEnd,
+    this.rasterStart,
+    this.rasterEnd,
+  });
+
+  PipelineMetrics copyWith({
+    int buildStart,
+    int buildEnd,
+    int rasterStart,
+    int rasterEnd,
+  }) {
+    int bs = buildStart ?? this.buildStart;
+    int be = buildEnd ?? this.buildEnd;
+    int rs = rasterStart ?? this.rasterStart;
+    int re = rasterEnd ?? this.rasterEnd;
+    return PipelineMetrics(
+      buildStart: bs,
+      buildEnd: be,
+      rasterStart: rs,
+      rasterEnd: re,
+    );
+  }
+}
