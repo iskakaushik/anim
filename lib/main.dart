@@ -1,14 +1,8 @@
 import 'dart:collection';
 
+import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-
-const kAnimationDurationSeconds = 10;
-const kNumTicks = 800;
-const kPipelineDepth = 5;
-
-const kTicksToBuild = 30;
-const kTicksToRaster = 100;
-const kTicksPerVsync = 60;
+import 'input_form.dart';
 
 void main() {
   runApp(PipelineSimulatorApp());
@@ -21,12 +15,97 @@ class PipelineSimulatorApp extends StatelessWidget {
     return MaterialApp(
       title: 'Pipeline Simulator App',
       theme: ThemeData.light(),
-      home: Material(child: PipelineSimatorAnimation()),
+      home: Material(child: SimulationAndForm()),
+    );
+  }
+}
+
+const Map<String, int> kDefaultSettings = <String, int>{
+  'animationDurationInSecs': 10,
+  'totalNumTicks': 800,
+  'pipelineDepth': 2,
+  'ticksToBuild': 30,
+  'ticksToRaster': 100,
+  'ticksPerVsync': 60
+};
+
+class PipelineSettings extends Equatable {
+  final int animationDurationInSecs;
+  final int totalNumTicks;
+  final int pipelineDepth;
+  final int ticksToBuild;
+  final int ticksToRaster;
+  final int ticksPerVsync;
+
+  PipelineSettings({
+    this.animationDurationInSecs,
+    this.totalNumTicks,
+    this.pipelineDepth,
+    this.ticksToBuild,
+    this.ticksToRaster,
+    this.ticksPerVsync,
+  });
+
+  factory PipelineSettings.fromMap(Map<String, int> map) {
+    return PipelineSettings(
+      animationDurationInSecs: map['animationDurationInSecs'],
+      totalNumTicks: map['totalNumTicks'],
+      pipelineDepth: map['pipelineDepth'],
+      ticksToBuild: map['ticksToBuild'],
+      ticksToRaster: map['ticksToRaster'],
+      ticksPerVsync: map['ticksPerVsync'],
+    );
+  }
+
+  @override
+  List<Object> get props => [
+        animationDurationInSecs,
+        totalNumTicks,
+        pipelineDepth,
+        ticksToBuild,
+        ticksToRaster,
+        ticksPerVsync
+      ];
+}
+
+class SimulationAndForm extends StatefulWidget {
+  @override
+  _SimulationAndFormState createState() => _SimulationAndFormState();
+}
+
+class _SimulationAndFormState extends State<SimulationAndForm> {
+  PipelineSettings settings = PipelineSettings.fromMap(kDefaultSettings);
+
+  void onSuccess(Map<String, int> map) {
+    setState(() {
+      settings = PipelineSettings.fromMap(map);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Container(
+          width: 300,
+          child: InputSettings(
+            fields: kDefaultSettings,
+            successCallback: onSuccess,
+          ),
+        ),
+        PipelineSimatorAnimation(
+          settings: settings,
+        )
+      ],
     );
   }
 }
 
 class PipelineSimatorAnimation extends StatefulWidget {
+  final PipelineSettings settings;
+
+  const PipelineSimatorAnimation({Key key, this.settings}) : super(key: key);
+
   @override
   _PipelineSimatorAnimationState createState() =>
       _PipelineSimatorAnimationState();
@@ -37,37 +116,54 @@ class _PipelineSimatorAnimationState extends State<PipelineSimatorAnimation>
   Animation<int> tickCounter;
   AnimationController controller;
 
-  @override
-  void initState() {
-    super.initState();
-    controller = AnimationController(
-      duration: const Duration(seconds: kAnimationDurationSeconds),
-      vsync: this,
-    );
-    tickCounter = IntTween(begin: 0, end: kNumTicks).animate(controller)
-      ..addListener(() {
-        setState(() {
-          // The state that has changed here is the animation object’s value.
-        });
-      });
+  void _initAnimations() {
+    controller.duration =
+        Duration(seconds: widget.settings.animationDurationInSecs);
+    tickCounter = IntTween(begin: 0, end: widget.settings.totalNumTicks)
+        .animate(controller)
+          ..addListener(() {
+            setState(() {
+              // The state that has changed here is the animation object’s value.
+            });
+          });
     controller.forward();
   }
 
   @override
+  void initState() {
+    super.initState();
+    controller = AnimationController(
+      vsync: this,
+    );
+    _initAnimations();
+  }
+
+  @override
+  void didUpdateWidget(PipelineSimatorAnimation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings != widget.settings) {
+      controller.reset();
+      _initAnimations();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final PipelineSettings settings = widget.settings;
     return Container(
       child: Column(
         children: <Widget>[
-          Text("ticks to build: $kTicksToBuild"),
-          Text("ticks to raster: $kTicksToRaster"),
-          Text("ticks per vsync: $kTicksPerVsync"),
+          Text("total ticks simulating: ${settings.totalNumTicks}"),
+          Text("ticks to build: ${settings.ticksToBuild}"),
+          Text("ticks to raster: ${settings.ticksToRaster}"),
+          Text("ticks per vsync: ${settings.ticksPerVsync}"),
           Text("tick: ${tickCounter.value}"),
           Text("blue is currently being rastered. green is rastered."
               " black is built not rastered. red is being built."),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: PipelineSimulator(
-              depth: kPipelineDepth,
+              settings: settings,
               tick: tickCounter.value,
             ),
           ),
@@ -87,11 +183,11 @@ class _PipelineSimatorAnimationState extends State<PipelineSimatorAnimation>
 class PipelineSimulator extends StatelessWidget {
   PipelineSimulator({
     Key key,
-    @required this.depth,
+    @required this.settings,
     @required this.tick,
   }) : super(key: key);
 
-  final int depth;
+  final PipelineSettings settings;
   final int tick;
 
   @override
@@ -110,7 +206,7 @@ class PipelineSimulator extends StatelessWidget {
     for (int i = 0; i < tick; i++) {
       /// ui thread actions
       if (uiThreadFrame != null) {
-        if (i - uiThreadFrame.buildStart >= kTicksToBuild) {
+        if (i - uiThreadFrame.buildStart >= settings.ticksToBuild) {
           builtNotRastered.add(PipelineItem(
             frameNum: uiThreadFrame.frameNum,
             color: Colors.black,
@@ -120,7 +216,8 @@ class PipelineSimulator extends StatelessWidget {
           uiThreadFrame = null;
         }
       } else {
-        if (i % kTicksPerVsync == 0 && builtNotRastered.length < depth) {
+        if (i % settings.ticksPerVsync == 0 &&
+            builtNotRastered.length < settings.pipelineDepth) {
           uiThreadFrame = PipelineItem(
             frameNum: frameNum++,
             color: Colors.red,
@@ -131,7 +228,7 @@ class PipelineSimulator extends StatelessWidget {
 
       // gpu thread actions
       if (gpuThreadFrame != null) {
-        if (i - gpuThreadFrame.rasterStart >= kTicksToRaster) {
+        if (i - gpuThreadFrame.rasterStart >= settings.ticksToRaster) {
           rastered.add(PipelineItem(
             frameNum: gpuThreadFrame.frameNum,
             color: Colors.green,
