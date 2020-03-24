@@ -7,7 +7,7 @@ const kNumTicks = 800;
 const kPipelineDepth = 5;
 
 const kTicksToBuild = 30;
-const kTicksToRaster = 95;
+const kTicksToRaster = 100;
 const kTicksPerVsync = 60;
 
 void main() {
@@ -62,8 +62,8 @@ class _PipelineSimatorAnimationState extends State<PipelineSimatorAnimation>
           Text("ticks to raster: $kTicksToRaster"),
           Text("ticks per vsync: $kTicksPerVsync"),
           Text("tick: ${tickCounter.value}"),
-          Text(
-              "green is rastered. black is built not rastered. red is being built."),
+          Text("blue is currently being rastered. green is rastered."
+              " black is built not rastered. red is being built."),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: PipelineSimulator(
@@ -103,6 +103,8 @@ class PipelineSimulator extends StatelessWidget {
     final Queue<PipelineItem> rastered = Queue();
 
     PipelineItem uiThreadFrame;
+    PipelineItem gpuThreadFrame;
+
     int frameNum = 1;
 
     for (int i = 0; i < tick; i++) {
@@ -128,22 +130,34 @@ class PipelineSimulator extends StatelessWidget {
       }
 
       // gpu thread actions
-      if (builtNotRastered.isNotEmpty) {
-        PipelineItem front = builtNotRastered.first;
-        if (i - front.buildEnd >= kTicksToRaster) {
-          builtNotRastered.removeFirst();
+      if (gpuThreadFrame != null) {
+        if (i - gpuThreadFrame.rasterStart >= kTicksToRaster) {
           rastered.add(PipelineItem(
-            frameNum: front.frameNum,
+            frameNum: gpuThreadFrame.frameNum,
             color: Colors.green,
-            buildStart: front.buildStart,
-            buildEnd: front.buildEnd,
-            rasterStart: i - kTicksToRaster,
+            buildStart: gpuThreadFrame.buildStart,
+            buildEnd: gpuThreadFrame.buildEnd,
+            rasterStart: gpuThreadFrame.rasterStart,
             rasterEnd: i,
           ));
+          gpuThreadFrame = null;
         }
+      } else if (builtNotRastered.isNotEmpty) {
+        PipelineItem front = builtNotRastered.first;
+        builtNotRastered.removeFirst();
+        gpuThreadFrame = PipelineItem(
+          frameNum: front.frameNum,
+          color: Colors.blue,
+          buildStart: front.buildStart,
+          buildEnd: front.buildEnd,
+          rasterStart: i,
+        );
       }
     }
 
+    if (gpuThreadFrame != null) {
+      rastered.add(gpuThreadFrame);
+    }
     rastered.addAll(builtNotRastered);
     if (uiThreadFrame != null) {
       rastered.add(uiThreadFrame);
