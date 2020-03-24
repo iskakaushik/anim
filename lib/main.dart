@@ -1,8 +1,7 @@
-import 'dart:collection';
-
 import 'package:flutter/material.dart';
 import 'input_form.dart';
 import 'model.dart';
+import 'simulations.dart';
 
 void main() {
   runApp(PipelineSimulatorApp());
@@ -144,73 +143,18 @@ class PipelineSimulator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    /// current producer continuation strategy.
-
-    // definitely not the most efficient way.
-    final Queue<PipelineItem> builtNotRastered = Queue();
-    final Queue<PipelineItem> rastered = Queue();
-
-    PipelineItem uiThreadFrame;
-    PipelineItem gpuThreadFrame;
-
-    int frameNum = 1;
-
-    for (int i = 0; i < tick; i++) {
-      /// ui thread actions
-      if (uiThreadFrame != null) {
-        if (i - uiThreadFrame.metrics.buildStart >= settings.ticksToBuild) {
-          builtNotRastered.add(PipelineItem(
-            frameNum: uiThreadFrame.frameNum,
-            color: Colors.black,
-            metrics: uiThreadFrame.metrics.copyWith(buildEnd: i),
-          ));
-          uiThreadFrame = null;
-        }
-      } else {
-        if (i % settings.ticksPerVsync == 0 &&
-            builtNotRastered.length < settings.pipelineDepth) {
-          uiThreadFrame = PipelineItem(
-            frameNum: frameNum++,
-            color: Colors.red,
-            metrics: PipelineMetrics(buildStart: i),
-          );
-        }
-      }
-
-      // gpu thread actions
-      if (gpuThreadFrame != null) {
-        if (i - gpuThreadFrame.metrics.rasterStart >= settings.ticksToRaster) {
-          rastered.add(PipelineItem(
-            frameNum: gpuThreadFrame.frameNum,
-            color: Colors.green,
-            metrics: gpuThreadFrame.metrics.copyWith(rasterEnd: i),
-          ));
-          gpuThreadFrame = null;
-        }
-      } else if (builtNotRastered.isNotEmpty) {
-        PipelineItem front = builtNotRastered.first;
-        builtNotRastered.removeFirst();
-        gpuThreadFrame = PipelineItem(
-          frameNum: front.frameNum,
-          color: Colors.blue,
-          metrics: front.metrics.copyWith(rasterStart: i),
-        );
-      }
-    }
-
-    if (gpuThreadFrame != null) {
-      rastered.add(gpuThreadFrame);
-    }
-    rastered.addAll(builtNotRastered);
-    if (uiThreadFrame != null) {
-      rastered.add(uiThreadFrame);
-    }
+    final ProducerContinuationSimulator sim = ProducerContinuationSimulator();
+    final simmed =
+        sim.simulate(tick, settings).map((FrameMetrics frameMetrics) {
+      return PipelineItem(
+        frameNum: frameMetrics.frameNum,
+        metrics: frameMetrics,
+      );
+    }).toList();
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Row(
-        children: rastered.toList(),
-      ),
+      child: Row(children: simmed),
     );
   }
 }
@@ -218,13 +162,11 @@ class PipelineSimulator extends StatelessWidget {
 const kInvalid = -1;
 
 class PipelineItem extends StatelessWidget {
-  final Color color;
   final int frameNum;
-  final PipelineMetrics metrics;
+  final FrameMetrics metrics;
 
   const PipelineItem({
     Key key,
-    this.color = Colors.blue,
     @required this.frameNum,
     @required this.metrics,
   }) : super(key: key);
@@ -244,6 +186,20 @@ class PipelineItem extends StatelessWidget {
     );
   }
 
+  Color getColor() {
+    switch (metrics.frameState) {
+      case FrameState.BUILDING:
+        return Colors.red;
+      case FrameState.BUILT:
+        return Colors.black;
+      case FrameState.RASTERIZING:
+        return Colors.blue;
+      case FrameState.RASTERIZED:
+        return Colors.green;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -255,7 +211,7 @@ class PipelineItem extends StatelessWidget {
         children: <Widget>[
           displayTimes(),
           CustomPaint(
-            painter: StrokedRectPainter(this.color),
+            painter: StrokedRectPainter(getColor()),
           )
         ],
       ),

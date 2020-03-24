@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 
 const Map<String, int> kDefaultSettings = <String, int>{
   'animationDurationInSecs': 10,
@@ -48,34 +49,44 @@ class PipelineSettings extends Equatable {
       ];
 }
 
-class PipelineMetrics {
+enum FrameState { BUILDING, BUILT, RASTERIZING, RASTERIZED }
+
+class FrameMetrics {
+  final int frameNum;
   final int buildStart;
   final int buildEnd;
   final int rasterStart;
   final int rasterEnd;
+  final FrameState frameState;
 
-  PipelineMetrics({
+  FrameMetrics({
+    @required this.frameNum,
     this.buildStart,
     this.buildEnd,
     this.rasterStart,
     this.rasterEnd,
+    this.frameState,
   });
 
-  PipelineMetrics copyWith({
+  FrameMetrics copyWith({
     int buildStart,
     int buildEnd,
     int rasterStart,
     int rasterEnd,
+    FrameState frameState,
   }) {
     int bs = buildStart ?? this.buildStart;
     int be = buildEnd ?? this.buildEnd;
     int rs = rasterStart ?? this.rasterStart;
     int re = rasterEnd ?? this.rasterEnd;
-    return PipelineMetrics(
+    FrameState fs = frameState ?? this.frameState;
+    return FrameMetrics(
+      frameNum: frameNum,
       buildStart: bs,
       buildEnd: be,
       rasterStart: rs,
       rasterEnd: re,
+      frameState: fs,
     );
   }
 }
