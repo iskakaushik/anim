@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 
 const Map<String, int> kDefaultSettings = <String, int>{
-  'animationDurationInSecs': 10,
+  'animationDurationInSecs': 2,
   'totalNumTicks': 800,
   'pipelineDepth': 2,
   'ticksToBuild': 30,

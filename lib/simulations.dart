@@ -2,11 +2,13 @@ import 'dart:collection';
 
 import 'model.dart';
 
-abstract class PipelineSimulator {
+abstract class PipelineSimulation {
+  String getName();
+
   List<FrameMetrics> simulate(int numTicksDone, PipelineSettings settings);
 }
 
-class ProducerContinuationSimulator extends PipelineSimulator {
+class ProducerContinuationSimulation extends PipelineSimulation {
   @override
   List<FrameMetrics> simulate(int numTicksDone, PipelineSettings settings) {
     // definitely not the most efficient way.
@@ -67,5 +69,10 @@ class ProducerContinuationSimulator extends PipelineSimulator {
     }
 
     return rastered.toList();
+  }
+
+  @override
+  String getName() {
+    return "ProducerContinuationSimulator";
   }
 }

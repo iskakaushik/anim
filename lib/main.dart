@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'input_form.dart';
 import 'model.dart';
 import 'simulations.dart';
+import 'package:charts_flutter/flutter.dart' as charts;
 
 void main() {
   runApp(PipelineSimulatorApp());
@@ -98,27 +99,33 @@ class _PipelineSimatorAnimationState extends State<PipelineSimatorAnimation>
     }
   }
 
+  List<Widget> getSimulations() {
+    List<PipelineSimulation> simulations = <PipelineSimulation>[
+      ProducerContinuationSimulation()
+    ];
+    return simulations
+        .map((sim) => PipelineSimulationView(
+              settings: widget.settings,
+              simulation: sim,
+              animationStatus: controller.status,
+              tick: tickCounter.value,
+            ))
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final PipelineSettings settings = widget.settings;
+
+    List<Widget> cols = <Widget>[
+          SimulatorSettingsView(settings: settings),
+          Text("tick: ${tickCounter.value}"),
+        ] +
+        getSimulations();
+
     return Container(
       child: Column(
-        children: <Widget>[
-          Text("total ticks simulating: ${settings.totalNumTicks}"),
-          Text("ticks to build: ${settings.ticksToBuild}"),
-          Text("ticks to raster: ${settings.ticksToRaster}"),
-          Text("ticks per vsync: ${settings.ticksPerVsync}"),
-          Text("tick: ${tickCounter.value}"),
-          Text("blue is currently being rastered. green is rastered."
-              " black is built not rastered. red is being built."),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: PipelineSimulator(
-              settings: settings,
-              tick: tickCounter.value,
-            ),
-          ),
-        ],
+        children: cols,
       ),
     );
   }
@@ -130,22 +137,117 @@ class _PipelineSimatorAnimationState extends State<PipelineSimatorAnimation>
   }
 }
 
+class PipelineSimulationView extends StatelessWidget {
+  final PipelineSettings settings;
+  final PipelineSimulation simulation;
+  final AnimationStatus animationStatus;
+  final int tick;
+
+  const PipelineSimulationView({
+    Key key,
+    this.settings,
+    this.simulation,
+    this.animationStatus,
+    this.tick,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    Widget metricsView = Container();
+    if (animationStatus == AnimationStatus.completed) {
+      List<FrameMetrics> simulated =
+          simulation.simulate(settings.totalNumTicks, settings);
+      metricsView = MetricsView(simulated: simulated);
+    }
+    var children = <Widget>[
+      Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Text(
+          '${simulation.getName()}',
+          style: TextStyle(fontSize: 20),
+        ),
+      ),
+      metricsView,
+      PipelineSimulator(
+        settings: settings,
+        tick: tick,
+        sim: ProducerContinuationSimulation(),
+      ),
+    ];
+    return Column(
+      children: children,
+    );
+  }
+}
+
+class MetricsView extends StatelessWidget {
+  const MetricsView({
+    Key key,
+    @required this.simulated,
+  }) : super(key: key);
+
+  final List<FrameMetrics> simulated;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 500,
+      height: 300,
+      child: new charts.ScatterPlotChart(
+        <charts.Series<FrameMetrics, int>>[
+          charts.Series<FrameMetrics, int>(
+            id: 'Tablet',
+            colorFn: (_, __) => charts.MaterialPalette.red.shadeDefault,
+            domainFn: (FrameMetrics metrics, _) => metrics.buildStart,
+            measureFn: (FrameMetrics metrics, _) =>
+                (metrics.rasterEnd - metrics.buildStart),
+            data: simulated
+                .where((element) => element.rasterEnd != null)
+                .toList(),
+          )
+        ],
+        animate: false,
+        defaultRenderer: new charts.PointRendererConfig(),
+      ),
+    );
+  }
+}
+
+class SimulatorSettingsView extends StatelessWidget {
+  final PipelineSettings settings;
+
+  const SimulatorSettingsView({Key key, this.settings}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: <Widget>[
+      Text("total ticks simulating: ${settings.totalNumTicks}"),
+      Text("ticks to build: ${settings.ticksToBuild}"),
+      Text("ticks to raster: ${settings.ticksToRaster}"),
+      Text("ticks per vsync: ${settings.ticksPerVsync}"),
+      Text("Blue is currently being rastered. Green is rastered."
+          " Black is built not rastered. Red is being built."),
+    ]);
+  }
+}
+
 @immutable
 class PipelineSimulator extends StatelessWidget {
   PipelineSimulator({
     Key key,
     @required this.settings,
     @required this.tick,
+    @required this.sim,
   }) : super(key: key);
 
   final PipelineSettings settings;
   final int tick;
+  final PipelineSimulation sim;
 
   @override
   Widget build(BuildContext context) {
-    final ProducerContinuationSimulator sim = ProducerContinuationSimulator();
-    final simmed =
-        sim.simulate(tick, settings).map((FrameMetrics frameMetrics) {
+    final List<FrameMetrics> frameMetrics = sim.simulate(tick, settings);
+    final simmed = frameMetrics.map((FrameMetrics frameMetrics) {
       return PipelineItem(
         frameNum: frameMetrics.frameNum,
         metrics: frameMetrics,
@@ -158,8 +260,6 @@ class PipelineSimulator extends StatelessWidget {
     );
   }
 }
-
-const kInvalid = -1;
 
 class PipelineItem extends StatelessWidget {
   final int frameNum;
