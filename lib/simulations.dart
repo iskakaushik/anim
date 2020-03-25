@@ -8,6 +8,74 @@ abstract class PipelineSimulation {
   List<FrameMetrics> simulate(int numTicksDone, PipelineSettings settings);
 }
 
+class KeepOneFrameSimulation extends PipelineSimulation {
+  @override
+  String getName() {
+    return "KeepOneFrameSimulation";
+  }
+
+  @override
+  List<FrameMetrics> simulate(int numTicksDone, PipelineSettings settings) {
+    int frameNum = 1;
+    final Queue<FrameMetrics> rastered = Queue();
+
+    FrameMetrics beingBuilt;
+    FrameMetrics doneBuilt;
+    FrameMetrics beingRastered;
+
+    for (int i = 0; i < numTicksDone; i++) {
+      if (beingBuilt != null) {
+        // this frame has been built.
+        if (i - beingBuilt.buildStart >= settings.ticksToBuild) {
+          doneBuilt = beingBuilt.copyWith(
+            frameState: FrameState.BUILT,
+            buildEnd: i,
+          );
+          beingBuilt = null;
+        }
+      } else {
+        // vsync so build!
+        if (i % settings.ticksPerVsync == 0) {
+          beingBuilt = FrameMetrics(
+            frameNum: frameNum++,
+            buildStart: i,
+            frameState: FrameState.BUILDING,
+          );
+        }
+      }
+
+      // gpu thread
+      if (beingRastered != null) {
+        if (i - beingRastered.rasterStart >= settings.ticksToRaster) {
+          rastered.add(beingRastered.copyWith(
+            rasterEnd: i,
+            frameState: FrameState.RASTERIZED,
+          ));
+          beingRastered = null;
+        }
+      } else if (doneBuilt != null) {
+        beingRastered = doneBuilt.copyWith(
+          rasterStart: i,
+          frameState: FrameState.RASTERIZING,
+        );
+        doneBuilt = null;
+      }
+    }
+
+    if (beingRastered != null) {
+      rastered.add(beingRastered);
+    }
+    if (doneBuilt != null) {
+      rastered.add(doneBuilt);
+    }
+    if (beingBuilt != null) {
+      rastered.add(beingBuilt);
+    }
+
+    return rastered.toList();
+  }
+}
+
 class ProducerContinuationSimulation extends PipelineSimulation {
   @override
   List<FrameMetrics> simulate(int numTicksDone, PipelineSettings settings) {

@@ -101,7 +101,8 @@ class _PipelineSimatorAnimationState extends State<PipelineSimatorAnimation>
 
   List<Widget> getSimulations() {
     List<PipelineSimulation> simulations = <PipelineSimulation>[
-      ProducerContinuationSimulation()
+      ProducerContinuationSimulation(),
+      KeepOneFrameSimulation(),
     ];
     return simulations
         .map((sim) => PipelineSimulationView(
@@ -160,7 +161,13 @@ class PipelineSimulationView extends StatelessWidget {
       metricsView = MetricsView(simulated: simulated);
     }
     var children = <Widget>[
-      Divider(),
+      Container(
+        width: 100,
+        padding: EdgeInsets.all(5),
+        child: Divider(
+          thickness: 3,
+        ),
+      ),
       Padding(
         padding: const EdgeInsets.all(20.0),
         child: Text(
@@ -172,7 +179,7 @@ class PipelineSimulationView extends StatelessWidget {
       PipelineSimulator(
         settings: settings,
         tick: tick,
-        sim: ProducerContinuationSimulation(),
+        sim: simulation,
       ),
     ];
     return Column(
