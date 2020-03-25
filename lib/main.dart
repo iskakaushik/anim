@@ -225,7 +225,7 @@ class MetricsView extends StatelessWidget {
                 colorFn: (_, __) => charts.MaterialPalette.red.shadeDefault,
                 domainFn: (FrameMetrics metrics, _) => metrics.buildStart,
                 measureFn: (FrameMetrics metrics, _) =>
-                    (metrics.rasterEnd - metrics.buildStart),
+                    (metrics.rasterEnd - metrics.buildEnd),
                 data: rendered,
               )
             ],
@@ -281,7 +281,7 @@ class PipelineSimulator extends StatelessWidget {
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Row(children: simmed),
+      child: Row(children: simmed.reversed.toList()),
     );
   }
 }
