@@ -36,13 +36,16 @@ class _SimulationAndFormState extends State<SimulationAndForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return ListView(
+      shrinkWrap: true,
       children: <Widget>[
-        Container(
-          width: 300,
-          child: InputSettings(
-            fields: kDefaultSettings,
-            successCallback: onSuccess,
+        Center(
+          child: Container(
+            width: 300,
+            child: InputSettings(
+              fields: kDefaultSettings,
+              successCallback: onSuccess,
+            ),
           ),
         ),
         PipelineSimatorAnimation(
@@ -120,14 +123,14 @@ class _PipelineSimatorAnimationState extends State<PipelineSimatorAnimation>
 
     List<Widget> cols = <Widget>[
           SimulatorSettingsView(settings: settings),
-          Text("tick: ${tickCounter.value}"),
+          Center(child: Text("tick: ${tickCounter.value}")),
         ] +
         getSimulations();
 
-    return Container(
-      child: Column(
-        children: cols,
-      ),
+    return ListView(
+      scrollDirection: Axis.vertical,
+      shrinkWrap: true,
+      children: cols,
     );
   }
 
@@ -182,8 +185,11 @@ class PipelineSimulationView extends StatelessWidget {
         sim: simulation,
       ),
     ];
-    return Column(
-      children: children,
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        children: children,
+      ),
     );
   }
 }
