@@ -160,6 +160,7 @@ class PipelineSimulationView extends StatelessWidget {
       metricsView = MetricsView(simulated: simulated);
     }
     var children = <Widget>[
+      Divider(),
       Padding(
         padding: const EdgeInsets.all(20.0),
         child: Text(
@@ -190,25 +191,36 @@ class MetricsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 500,
-      height: 300,
-      child: new charts.ScatterPlotChart(
-        <charts.Series<FrameMetrics, int>>[
-          charts.Series<FrameMetrics, int>(
-            id: 'Tablet',
-            colorFn: (_, __) => charts.MaterialPalette.red.shadeDefault,
-            domainFn: (FrameMetrics metrics, _) => metrics.buildStart,
-            measureFn: (FrameMetrics metrics, _) =>
-                (metrics.rasterEnd - metrics.buildStart),
-            data: simulated
-                .where((element) => element.rasterEnd != null)
-                .toList(),
-          )
-        ],
-        animate: false,
-        defaultRenderer: new charts.PointRendererConfig(),
-      ),
+    final List<FrameMetrics> rendered =
+        simulated.where((e) => e.rasterEnd != null).toList();
+    final int totalLag = rendered
+        .map((e) => e.rasterEnd - e.buildEnd)
+        .reduce((v1, v2) => v1 + v2);
+    final String avgLag = (totalLag / rendered.length).toStringAsFixed(3);
+
+    return Column(
+      children: <Widget>[
+        Text('Num frames rendered = ${rendered.length}'),
+        Text('Frame Lag (rasterFinish - buildEnd) [Avg = $avgLag ticks]'),
+        Container(
+          width: 500,
+          height: 250,
+          child: new charts.ScatterPlotChart(
+            <charts.Series<FrameMetrics, int>>[
+              charts.Series<FrameMetrics, int>(
+                id: 'build_to_raster',
+                colorFn: (_, __) => charts.MaterialPalette.red.shadeDefault,
+                domainFn: (FrameMetrics metrics, _) => metrics.buildStart,
+                measureFn: (FrameMetrics metrics, _) =>
+                    (metrics.rasterEnd - metrics.buildStart),
+                data: rendered,
+              )
+            ],
+            animate: false,
+            defaultRenderer: new charts.PointRendererConfig(),
+          ),
+        ),
+      ],
     );
   }
 }
