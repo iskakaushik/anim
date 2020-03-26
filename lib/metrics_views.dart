@@ -34,8 +34,9 @@ class InputLatencyView extends StatelessWidget {
 
     return Column(
       children: <Widget>[
-        Text(
-            'Frame min and max latency (min = displayTime - buildStart, max = displayTime - prevBuildStart)'),
+        ChartName(name: 'Frame min and max input latency'),
+        Text('min = displayTime - buildStart,'
+            'max = displayTime - prevBuildStart'),
         Text('[Avg min latency = $avgMinL, Avg max latency = $avgMaxL]'),
         Container(
           width: 500,
@@ -65,6 +66,7 @@ class InputLatencyView extends StatelessWidget {
             defaultRenderer: new charts.PointRendererConfig(),
           ),
         ),
+        Divider(),
       ],
     );
   }
@@ -89,7 +91,8 @@ class LagView extends StatelessWidget {
     return Column(
       children: <Widget>[
         Text('Num frames rendered = ${rendered.length}'),
-        Text('Frame Lag (displayTime - targetTime) [Avg = $avgLag ticks]'),
+        ChartName(
+            name: 'Frame Lag (displayTime - targetTime) [Avg = $avgLag ticks]'),
         Container(
           width: 500,
           height: 250,
@@ -107,7 +110,25 @@ class LagView extends StatelessWidget {
             defaultRenderer: new charts.PointRendererConfig(),
           ),
         ),
+        Divider(),
       ],
+    );
+  }
+}
+
+class ChartName extends StatelessWidget {
+  final String name;
+
+  const ChartName({Key key, this.name}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      name,
+      style: TextStyle(
+        fontSize: 20,
+        color: Colors.blueAccent,
+      ),
     );
   }
 }
