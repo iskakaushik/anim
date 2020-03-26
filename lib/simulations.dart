@@ -8,6 +8,22 @@ abstract class PipelineSimulation {
   List<FrameMetrics> simulate(int numTicksDone, PipelineSettings settings);
 }
 
+class DisplayTimer {
+  final int ticksPerVsync;
+  int _lastDisplayTime = 0;
+
+  DisplayTimer(this.ticksPerVsync);
+
+  int getNextDisplayTime(int tick) {
+    int dt = _lastDisplayTime + ticksPerVsync;
+    while (dt <= tick) {
+      dt += ticksPerVsync;
+    }
+    _lastDisplayTime = dt;
+    return dt;
+  }
+}
+
 class KeepOneFrameSimulation extends PipelineSimulation {
   @override
   String getName() {
@@ -22,6 +38,7 @@ class KeepOneFrameSimulation extends PipelineSimulation {
     FrameMetrics beingBuilt;
     FrameMetrics doneBuilt;
     FrameMetrics beingRastered;
+    final DisplayTimer dt = DisplayTimer(settings.ticksPerVsync);
 
     for (int i = 0; i < numTicksDone; i++) {
       if (beingBuilt != null) {
@@ -36,9 +53,11 @@ class KeepOneFrameSimulation extends PipelineSimulation {
       } else {
         // vsync so build!
         if (i % settings.ticksPerVsync == 0) {
+          final int nextVsyncEnds = i + settings.ticksPerVsync;
           beingBuilt = FrameMetrics(
             frameNum: frameNum++,
             buildStart: i,
+            targetTime: nextVsyncEnds,
             frameState: FrameState.BUILDING,
           );
         }
@@ -50,6 +69,7 @@ class KeepOneFrameSimulation extends PipelineSimulation {
           rastered.add(beingRastered.copyWith(
             rasterEnd: i,
             frameState: FrameState.RASTERIZED,
+            displayTime: dt.getNextDisplayTime(i),
           ));
           beingRastered = null;
         }
@@ -87,6 +107,7 @@ class ProducerContinuationSimulation extends PipelineSimulation {
     FrameMetrics gpuThreadFrame;
 
     int frameNum = 1;
+    final DisplayTimer dt = DisplayTimer(settings.ticksPerVsync);
 
     for (int i = 0; i < numTicksDone; i++) {
       /// ui thread actions
@@ -101,9 +122,11 @@ class ProducerContinuationSimulation extends PipelineSimulation {
       } else {
         if (i % settings.ticksPerVsync == 0 &&
             builtNotRastered.length < settings.pipelineDepth) {
+          final int nextVsyncEnds = i + settings.ticksPerVsync;
           uiThreadFrame = FrameMetrics(
             frameNum: frameNum++,
             buildStart: i,
+            targetTime: nextVsyncEnds,
             frameState: FrameState.BUILDING,
           );
         }
@@ -114,6 +137,7 @@ class ProducerContinuationSimulation extends PipelineSimulation {
         if (i - gpuThreadFrame.rasterStart >= settings.ticksToRaster) {
           rastered.add(gpuThreadFrame.copyWith(
             rasterEnd: i,
+            displayTime: dt.getNextDisplayTime(i),
             frameState: FrameState.RASTERIZED,
           ));
           gpuThreadFrame = null;

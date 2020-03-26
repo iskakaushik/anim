@@ -205,16 +205,15 @@ class MetricsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<FrameMetrics> rendered =
-        simulated.where((e) => e.rasterEnd != null).toList();
-    final int totalLag = rendered
-        .map((e) => e.rasterEnd - e.buildEnd)
-        .reduce((v1, v2) => v1 + v2);
+        simulated.where((e) => e.displayTime != null).toList();
+    final int totalLag =
+        rendered.map((e) => e.lag()).reduce((v1, v2) => v1 + v2);
     final String avgLag = (totalLag / rendered.length).toStringAsFixed(3);
 
     return Column(
       children: <Widget>[
         Text('Num frames rendered = ${rendered.length}'),
-        Text('Frame Lag (rasterFinish - buildEnd) [Avg = $avgLag ticks]'),
+        Text('Frame Lag (displayTime - targetTime) [Avg = $avgLag ticks]'),
         Container(
           width: 500,
           height: 250,
@@ -224,8 +223,7 @@ class MetricsView extends StatelessWidget {
                 id: 'build_to_raster',
                 colorFn: (_, __) => charts.MaterialPalette.red.shadeDefault,
                 domainFn: (FrameMetrics metrics, _) => metrics.buildStart,
-                measureFn: (FrameMetrics metrics, _) =>
-                    (metrics.rasterEnd - metrics.buildEnd),
+                measureFn: (FrameMetrics metrics, _) => metrics.lag(),
                 data: rendered,
               )
             ],
@@ -302,10 +300,13 @@ class PipelineItem extends StatelessWidget {
       child: Column(
         children: <Widget>[
           Text("frameNum: $frameNum"),
+          Text("targetTime: ${metrics.targetTime}"),
           Text("buildStart: ${metrics.buildStart}"),
           Text("buildEnd: ${metrics.buildEnd}"),
           Text("rasterStart: ${metrics.rasterStart}"),
           Text("rasterEnd: ${metrics.rasterEnd}"),
+          Text("displayTime: ${metrics.displayTime}"),
+          Text("lag: ${metrics.lag()}"),
         ],
       ),
     );
@@ -329,7 +330,7 @@ class PipelineItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 150,
-      height: 100,
+      height: 150,
       child: Stack(
         fit: StackFit.expand,
         alignment: Alignment.center,
